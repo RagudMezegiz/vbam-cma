@@ -147,10 +147,15 @@ impl VBAMApp {
             let c = campaign::Campaign::new(
                 name_input.value()).await;
             self.cmpgn = match c {
-                Ok(cm) => Some(cm),
-                Err(_) => None,
+                Ok(cm) => {
+                    println!("Created {} campaign", name_input.value());
+                    Some(cm)
+                },
+                Err(s) => {
+                    dialog::alert_default(s.as_str());
+                    None
+                },
             };
-            println!("Created {} campaign", name_input.value());
         }
     }
 }
