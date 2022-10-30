@@ -91,34 +91,33 @@ impl VBAMApp {
     fn new_campaign(&mut self) {
         let mut wind = window::Window::default()
             .with_size(300, 300)
-            .center_screen();
+            .center_screen()
+            .with_label("Create New Campaign");
 
         let mut vbox = group::Pack::default()
             .with_size(300, 300)
             .with_type(group::PackType::Vertical);
-        vbox.set_spacing(10);
+        vbox.set_spacing(20);
         frame::Frame::default()
-            .with_size(150, 25)
             .with_label("New Campaign Name");
-        let name_input = input::Input::default()
-            .with_size(100, 30);
+        let name_input = input::Input::default();
 
         // TODO Add Campaign options controls
 
         let mut bbox = group::Pack::default()
             .with_align(Align::BottomRight)
-            .with_size(150, 50)
+            .with_size(300, 0)
             .with_type(group::PackType::Horizontal);
-        bbox.set_spacing(10);
+        bbox.set_spacing(20);
         let mut ok = button::Button::default()
-            .with_size(65, 30)
             .with_label("Ok");
         let mut cancel = button::Button::default()
-            .with_size(65, 30)
             .with_label("Cancel");
         bbox.end();
+        bbox.auto_layout();
 
         vbox.end();
+        vbox.auto_layout();
 
         wind.end();
         wind.make_modal(true);
