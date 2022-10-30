@@ -14,11 +14,15 @@
 // limitations under the License.
 use fltk::{
     app,
+    button,
     dialog,
-    enums::Shortcut,
+    enums::{Align, Shortcut},
+    frame,
+    group,
+    input,
     menu,
     prelude::*,
-    window::Window,
+    window,
 };
 
 mod campaign;
@@ -35,19 +39,119 @@ enum Message {
     HelpAbout,
 }
 
+struct VBAMApp {
+    app: app::App,
+    rcvr: app::Receiver<Message>,
+    cmpgn: Option<campaign::Campaign>
+}
+
+impl VBAMApp {
+    fn new() -> Self {
+        let app = app::App::default();
+        let (s, rcvr) = app::channel();
+    
+        let mut main_win = window::Window::default()
+            .with_size(WIDTH, HEIGHT)
+            .center_screen()
+            .with_label("VBAM Campain Moderator's Assistant");
+
+        let mut menu = menu::MenuBar::default().with_size(WIDTH, 25);
+
+        menu.add_emit("&File/&Quit\t", Shortcut::Ctrl | 'q',
+            menu::MenuFlag::Normal, s.clone(), Message::Quit);
+        
+        menu.add_emit("&Campaign/&New...\t", Shortcut::Ctrl | 'n',
+            menu::MenuFlag::Normal, s.clone(), Message::NewCampaign);
+
+        menu.add_emit("&Help/&About...\t", Shortcut::None,
+            menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
+
+        main_win.end();
+        main_win.show();
+
+        Self {
+            app,
+            rcvr,
+            cmpgn: Option::None
+        }
+    }
+
+    fn run(&mut self) {
+        while self.app.wait() {
+            if let Some(msg) = self.rcvr.recv() {
+                match msg {
+                    Message::Quit => app::quit(),
+                    Message::NewCampaign => self.new_campaign(),
+                    Message::HelpAbout => show_about(),
+                }
+            }
+        }
+    }
+
+    fn new_campaign(&mut self) {
+        let mut wind = window::Window::default()
+            .with_size(300, 300)
+            .center_screen();
+
+        let mut vbox = group::Pack::default()
+            .with_size(300, 300)
+            .with_type(group::PackType::Vertical);
+        vbox.set_spacing(10);
+        frame::Frame::default()
+            .with_size(150, 25)
+            .with_label("New Campaign Name");
+        let name_input = input::Input::default()
+            .with_size(100, 30);
+
+        // TODO Add Campaign options controls
+
+        let mut bbox = group::Pack::default()
+            .with_align(Align::BottomRight)
+            .with_size(150, 50)
+            .with_type(group::PackType::Horizontal);
+        bbox.set_spacing(10);
+        let mut ok = button::Button::default()
+            .with_size(65, 30)
+            .with_label("Ok");
+        let mut cancel = button::Button::default()
+            .with_size(65, 30)
+            .with_label("Cancel");
+        bbox.end();
+
+        vbox.end();
+
+        wind.end();
+        wind.make_modal(true);
+        wind.show();
+
+        let (s, r) = app::channel();
+        ok.emit(s.clone(), true);
+        cancel.emit(s.clone(), false);
+        
+        let mut is_ok = false;
+        while wind.shown() && self.app.wait() {
+            if let Some(a) = r.recv() {
+                is_ok = match a {
+                    true => true,
+                    false => false,
+                };
+                wind.hide();
+            }
+        }
+
+        if is_ok && !name_input.value().is_empty() {
+            self.cmpgn = Option::Some(campaign::Campaign::new(name_input.value()));
+            println!("Created {} campaign", name_input.value());
+        }
+    }
+}
+
 // Center of screen
 fn center() -> (i32, i32) {
     (
         (app::screen_size().0 / 2.0) as i32,
         (app::screen_size().1 / 2.0) as i32,
     )
-}
-
-fn new_campaign() {
-    let name = dialog::input_default("New Campaign Name", "");
-    if let Some(_name) = name {
-        // TODO Create new campaign
-    }
 }
 
 fn show_about() {
@@ -76,35 +180,5 @@ fn show_about() {
 }
 
 fn main() {
-    let app = app::App::default();
-    let (s, r) = app::channel();
-    
-    let mut wind = Window::default()
-        .with_size(WIDTH, HEIGHT)
-        .center_screen()
-        .with_label("VBAM Campain Moderator's Assistant");
-
-    let mut menu = menu::MenuBar::default().with_size(WIDTH, 25);
-
-    menu.add_emit("&File/&Quit\t", Shortcut::Ctrl | 'q',
-        menu::MenuFlag::Normal, s.clone(), Message::Quit);
-    
-    menu.add_emit("&Campaign/&New...\t", Shortcut::Ctrl | 'n',
-        menu::MenuFlag::Normal, s.clone(), Message::NewCampaign);
-
-    menu.add_emit("&Help/&About...\t", Shortcut::None,
-        menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
-
-    wind.end();
-    wind.show();
-
-    while app.wait() {
-        if let Some(msg) = r.recv() {
-            match msg {
-                Message::Quit => app::quit(),
-                Message::NewCampaign => new_campaign(),
-                Message::HelpAbout => show_about(),
-            }
-        }
-    }
+    VBAMApp::new().run();
 }
