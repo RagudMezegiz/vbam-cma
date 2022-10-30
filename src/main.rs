@@ -76,19 +76,24 @@ impl VBAMApp {
         }
     }
 
-    fn run(&mut self) {
+    async fn run(&mut self) {
         while self.app.wait() {
             if let Some(msg) = self.rcvr.recv() {
                 match msg {
-                    Message::Quit => app::quit(),
-                    Message::NewCampaign => self.new_campaign(),
+                    Message::Quit => {
+                        if let Some(c) = &self.cmpgn {
+                            c.close().await
+                        }
+                        app::quit()
+                    },
+                    Message::NewCampaign => self.new_campaign().await,
                     Message::HelpAbout => show_about(),
                 }
             }
         }
     }
 
-    fn new_campaign(&mut self) {
+    async fn new_campaign(&mut self) {
         let mut wind = window::Window::default()
             .with_size(300, 300)
             .center_screen()
@@ -139,7 +144,12 @@ impl VBAMApp {
         }
 
         if is_ok && !name_input.value().is_empty() {
-            self.cmpgn = Option::Some(campaign::Campaign::new(name_input.value()));
+            let c = campaign::Campaign::new(
+                name_input.value()).await;
+            self.cmpgn = match c {
+                Ok(cm) => Some(cm),
+                Err(_) => None,
+            };
             println!("Created {} campaign", name_input.value());
         }
     }
@@ -178,6 +188,7 @@ fn show_about() {
     }
 }
 
-fn main() {
-    VBAMApp::new().run();
+#[tokio::main]
+async fn main() {
+    VBAMApp::new().run().await;
 }
