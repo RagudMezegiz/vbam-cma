@@ -31,6 +31,9 @@ mod campaign;
 const MAIN_WIDTH: i32 = 800;
 const MAIN_HEIGHT: i32 = 600;
 
+// Main window base title
+const MAIN_TITLE: &str = "VBAM Campaign Moderator's Assistant";
+
 // Spacing for all the pack groups.
 const PACK_SPACING: i32 = 20;
 
@@ -46,6 +49,7 @@ enum Message {
 
 struct VBAMApp {
     app: app::App,
+    main_win: window::Window,
     rcvr: app::Receiver<Message>,
     cmpgn: Option<campaign::Campaign>
 }
@@ -58,7 +62,7 @@ impl VBAMApp {
         let mut main_win = window::Window::default()
             .with_size(MAIN_WIDTH, MAIN_HEIGHT)
             .center_screen()
-            .with_label("VBAM Campain Moderator's Assistant");
+            .with_label(MAIN_TITLE);
 
         let mut menu = menu::MenuBar::default().with_size(MAIN_WIDTH, 25);
 
@@ -82,6 +86,7 @@ impl VBAMApp {
 
         Self {
             app,
+            main_win,
             rcvr,
             cmpgn: Option::None
         }
@@ -108,6 +113,11 @@ impl VBAMApp {
 
     // Pop up new campaign dialog and set parameters.
     async fn new_campaign(&mut self) {
+        if let Some(cm) = &self.cmpgn {
+            cm.close().await;
+            self.cmpgn = None;
+        }
+
         let mut wind = window::Window::default()
             .with_size(300, 300)
             .center_screen()
@@ -170,6 +180,7 @@ impl VBAMApp {
                     None
                 },
             };
+            self.set_title();
         }
     }
 
@@ -189,8 +200,9 @@ impl VBAMApp {
                     dialog::alert_default(s.as_str());
                     None
                 },
-            }
+            };
         }
+        self.set_title();
     }
 
     // Pop up list of campaigns to select one to delete.
@@ -200,6 +212,7 @@ impl VBAMApp {
                 Some(cm) => {
                     cm.close().await;
                     self.cmpgn = None;
+                    self.set_title();
                 },
                 None => ()
             }
@@ -263,6 +276,15 @@ impl VBAMApp {
         } else {
             None
         }
+    }
+
+    // Set the main window title. Includes campaign name if one is active.
+    fn set_title(&mut self) {
+        let title = match &self.cmpgn {
+            Some(cm) => format!("{} ({} campaign)", MAIN_TITLE, cm.name()),
+            None => MAIN_TITLE.to_string(),
+        };
+        self.main_win.set_label(title.as_str());
     }
 }
 
