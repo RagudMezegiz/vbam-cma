@@ -28,14 +28,19 @@ use fltk::{
 mod campaign;
 
 // Width and height of main window
-const WIDTH: i32 = 800;
-const HEIGHT: i32 = 600;
+const MAIN_WIDTH: i32 = 800;
+const MAIN_HEIGHT: i32 = 600;
+
+// Spacing for all the pack groups.
+const PACK_SPACING: i32 = 20;
 
 // Menu item message types.
 #[derive(Clone)]
 enum Message {
     Quit,
     NewCampaign,
+    OpenCampaign,
+    DeleteCampaign,
     HelpAbout,
 }
 
@@ -51,17 +56,23 @@ impl VBAMApp {
         let (s, rcvr) = app::channel();
     
         let mut main_win = window::Window::default()
-            .with_size(WIDTH, HEIGHT)
+            .with_size(MAIN_WIDTH, MAIN_HEIGHT)
             .center_screen()
             .with_label("VBAM Campain Moderator's Assistant");
 
-        let mut menu = menu::MenuBar::default().with_size(WIDTH, 25);
+        let mut menu = menu::MenuBar::default().with_size(MAIN_WIDTH, 25);
 
         menu.add_emit("&File/&Quit\t", Shortcut::Ctrl | 'q',
             menu::MenuFlag::Normal, s.clone(), Message::Quit);
         
         menu.add_emit("&Campaign/&New...\t", Shortcut::Ctrl | 'n',
             menu::MenuFlag::Normal, s.clone(), Message::NewCampaign);
+        
+        menu.add_emit("&Campaign/&Open...\t", Shortcut::Ctrl | 'o',
+            menu::MenuFlag::MenuDivider, s.clone(), Message::OpenCampaign);
+
+        menu.add_emit("&Campaign/&Delete...\t", Shortcut::Ctrl | 'd',
+            menu::MenuFlag::Normal, s.clone(), Message::DeleteCampaign);
 
         menu.add_emit("&Help/&About...\t", Shortcut::None,
             menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
@@ -87,12 +98,15 @@ impl VBAMApp {
                         app::quit()
                     },
                     Message::NewCampaign => self.new_campaign().await,
+                    Message::OpenCampaign => self.open_campaign().await,
+                    Message::DeleteCampaign => self.delete_campaign().await,
                     Message::HelpAbout => show_about(),
                 }
             }
         }
     }
 
+    // Pop up new campaign dialog and set parameters.
     async fn new_campaign(&mut self) {
         let mut wind = window::Window::default()
             .with_size(300, 300)
@@ -102,7 +116,7 @@ impl VBAMApp {
         let mut vbox = group::Pack::default()
             .with_size(300, 300)
             .with_type(group::PackType::Vertical);
-        vbox.set_spacing(20);
+        vbox.set_spacing(PACK_SPACING);
         frame::Frame::default()
             .with_label("New Campaign Name");
         let name_input = input::Input::default();
@@ -113,7 +127,7 @@ impl VBAMApp {
             .with_align(Align::BottomRight)
             .with_size(300, 0)
             .with_type(group::PackType::Horizontal);
-        bbox.set_spacing(20);
+        bbox.set_spacing(PACK_SPACING);
         let mut ok = button::Button::default()
             .with_label("Ok");
         let mut cancel = button::Button::default()
@@ -148,7 +162,7 @@ impl VBAMApp {
                 name_input.value()).await;
             self.cmpgn = match c {
                 Ok(cm) => {
-                    println!("Created {} campaign", name_input.value());
+                    println!("Created {} campaign", cm.name());
                     Some(cm)
                 },
                 Err(s) => {
@@ -156,6 +170,98 @@ impl VBAMApp {
                     None
                 },
             };
+        }
+    }
+
+    // Pop up list of campaigns to select from.
+    async fn open_campaign(&mut self) {
+        if let Some(name) = self.list_campaigns("Open".to_string()) {
+            if let Some(cm) = &self.cmpgn {
+                cm.close().await;
+            }
+            let c = campaign::Campaign::open(&name).await;
+            self.cmpgn = match c {
+                Ok(cm) => {
+                    println!("Opened {} campaign", name);
+                    Some(cm)
+                },
+                Err(s) => {
+                    dialog::alert_default(s.as_str());
+                    None
+                },
+            }
+        }
+    }
+
+    // Pop up list of campaigns to select one to delete.
+    async fn delete_campaign(&mut self) {
+        if let Some(name) = self.list_campaigns("Delete".to_string()) {
+            match &self.cmpgn {
+                Some(cm) => {
+                    cm.close().await;
+                    self.cmpgn = None;
+                },
+                None => ()
+            }
+            match campaign::Campaign::delete(&name) {
+                Ok(_) => println!("Deleted {} campaign", name),
+                Err(s) => dialog::alert_default(s.as_str()),
+            }
+        }
+    }
+
+    // Pop up the select campaign dialog and return the user's choice.
+    fn list_campaigns(&mut self, function: String) -> Option<String> {
+        let names = match campaign::list() {
+            Ok(v) => v.join("|"),
+            _ => return None
+        };
+
+        let mut wind = window::Window::default()
+            .with_size(150, 150)
+            .with_label(format!("{} Campaign", function).as_str())
+            .center_screen();
+        let mut vbox = group::Pack::default()
+            .with_size(150, 150)
+            .with_type(group::PackType::Vertical);
+        vbox.set_spacing(PACK_SPACING);
+        let mut choice = menu::Choice::default();
+        choice.add_choice(names.as_str());
+        let mut bbox = group::Pack::default()
+            .with_size(150, 0)
+            .with_type(group::PackType::Horizontal);
+        bbox.set_spacing(PACK_SPACING);
+        let mut ok = button::Button::default()
+            .with_label("Ok");
+        let mut cancel = button::Button::default()
+            .with_label("Cancel");
+        bbox.end();
+        bbox.auto_layout();
+        vbox.end();
+        vbox.auto_layout();
+        wind.end();
+        wind.make_modal(true);
+        wind.show();
+
+        let (s, r) = app::channel();
+        ok.emit(s.clone(), true);
+        cancel.emit(s.clone(), false);
+        
+        let mut is_ok = false;
+        while wind.shown() && self.app.wait() {
+            if let Some(a) = r.recv() {
+                is_ok = match a {
+                    true => true,
+                    false => false,
+                };
+                wind.hide();
+            }
+        }
+
+        if is_ok {
+            choice.choice()
+        } else {
+            None
         }
     }
 }
