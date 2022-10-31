@@ -15,7 +15,6 @@
 
 //! The program interface to the back-end data and control layer.
 
-use dirs;
 use sqlx::SqlitePool;
 use std::{fs, io, path};
 
@@ -56,7 +55,7 @@ impl Campaign {
 
     /// Open an existing campaign.
     pub async fn open(name: &String) -> Result<Self, String> {
-        let dbpath = database_path(&name)?;
+        let dbpath = database_path(name)?;
 
         // Connect to the database.
         let url = format!("sqlite://{}", dbpath.to_str().unwrap());
@@ -104,10 +103,10 @@ fn data_folder() -> Result<path::PathBuf, String> {
     Ok(dbpath)
 }
 
-fn database_path(name: &String) -> Result<path::PathBuf, String> {
+fn database_path(name: &str) -> Result<path::PathBuf, String> {
     // Create SQLite file name by converting spaces in the campaign name
     // to underscores and adding the '.db' extension.
-    let dbname = name.replace(" ", "_") + ".db";
+    let dbname = name.replace(' ', "_") + ".db";
 
     let mut dbpath = data_folder()?;
     dbpath.push(dbname);
@@ -134,7 +133,7 @@ pub fn list() -> io::Result<Vec<String>> {
             match f {
                 Ok(f) => match f.path().file_stem() {
                     Some(f) => match f.to_str() {
-                        Some(s) => s.replace("_", " "),
+                        Some(s) => s.replace('_', " "),
                         _ => String::new(),
                     },
                     _ => String::new(),

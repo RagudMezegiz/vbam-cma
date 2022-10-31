@@ -79,7 +79,7 @@ impl VBAMApp {
             menu::MenuFlag::Normal, s.clone(), Message::DeleteCampaign);
 
         menu.add_emit("&Help/&About...\t", Shortcut::None,
-            menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
+            menu::MenuFlag::Normal, s, Message::HelpAbout);
 
         main_win.end();
         main_win.show();
@@ -153,8 +153,8 @@ impl VBAMApp {
         wind.show();
 
         let (s, r) = app::channel();
-        ok.emit(s.clone(), true);
-        cancel.emit(s.clone(), false);
+        ok.emit(s, true);
+        cancel.emit(s, false);
         
         let mut is_ok = false;
         while wind.shown() && self.app.wait() {
@@ -257,8 +257,8 @@ impl VBAMApp {
         wind.show();
 
         let (s, r) = app::channel();
-        ok.emit(s.clone(), true);
-        cancel.emit(s.clone(), false);
+        ok.emit(s, true);
+        cancel.emit(s, false);
         
         let mut is_ok = false;
         while wind.shown() && self.app.wait() {
