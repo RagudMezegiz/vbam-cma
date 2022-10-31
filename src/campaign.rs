@@ -54,7 +54,7 @@ impl Campaign {
     }
 
     /// Open an existing campaign.
-    pub async fn open(name: &String) -> Result<Self, String> {
+    pub async fn open(name: &str) -> Result<Self, String> {
         let dbpath = database_path(name)?;
 
         // Connect to the database.
@@ -64,11 +64,11 @@ impl Campaign {
             Err(e) => return Err(e.to_string())
         };
 
-        Ok(Self { name: name.clone(), pool })
+        Ok(Self { name: name.to_owned(), pool })
     }
 
     /// Delete an existing campaign.
-    pub fn delete(name: &String) -> Result<(), String> {
+    pub fn delete(name: &str) -> Result<(), String> {
         let dbpath = database_path(name)?;
         match fs::remove_file(dbpath) {
             Ok(_) => Ok(()),
