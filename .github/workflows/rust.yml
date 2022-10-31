@@ -18,12 +18,16 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: |
-        sudo apt-get install -y libxinerama1
-        sudo apt-get install -y libxcursor1
-        sudo apt-get install -y libxfixes3
-        sudo apt-get install -y libpango-1.0-0
-        sudo apt-get install -y libpangoxft-1.0-0
-        sudo apt-get install -y libpangocairo-1.0-0
+        sudo apt-get install -y libx11-dev
+        sudo apt-get install -y libxext-dev
+        sudo apt-get install -y libxft-dev
+        sudo apt-get install -y libxinerama-dev
+        sudo apt-get install -y libxcursor-dev
+        sudo apt-get install -y libxrender-dev
+        sudo apt-get install -y libxfixes-dev
+        sudo apt-get install -y libpango1.0-dev
+        sudo apt-get install -y libgl1-mesa-dev
+        sudo apt-get install -y libglu1-mesa-dev
     - name: Build
       run: cargo build --verbose
     - name: Run tests
