@@ -43,6 +43,7 @@ enum Message {
     Quit,
     NewCampaign,
     OpenCampaign,
+    CloseCampaign,
     DeleteCampaign,
     HelpAbout,
 }
@@ -73,7 +74,10 @@ impl VBAMApp {
             menu::MenuFlag::Normal, s.clone(), Message::NewCampaign);
         
         menu.add_emit("&Campaign/&Open...\t", Shortcut::Ctrl | 'o',
-            menu::MenuFlag::MenuDivider, s.clone(), Message::OpenCampaign);
+            menu::MenuFlag::Normal, s.clone(), Message::OpenCampaign);
+
+        menu.add_emit("&Campaign/&Close...\t", Shortcut::Ctrl | 'o',
+            menu::MenuFlag::MenuDivider, s.clone(), Message::CloseCampaign);
 
         menu.add_emit("&Campaign/&Delete...\t", Shortcut::Ctrl | 'd',
             menu::MenuFlag::Normal, s.clone(), Message::DeleteCampaign);
@@ -104,6 +108,7 @@ impl VBAMApp {
                     },
                     Message::NewCampaign => self.new_campaign().await,
                     Message::OpenCampaign => self.open_campaign().await,
+                    Message::CloseCampaign => self.close_campaign().await,
                     Message::DeleteCampaign => self.delete_campaign().await,
                     Message::HelpAbout => show_about(),
                 }
@@ -202,6 +207,16 @@ impl VBAMApp {
                 },
             };
         }
+        self.set_title();
+    }
+
+    // Close the current campaign, if any.
+    async fn close_campaign(&mut self) {
+        if let Some(cm) = &self.cmpgn {
+            cm.close().await;
+            self.cmpgn = None;
+        }
+
         self.set_title();
     }
 
