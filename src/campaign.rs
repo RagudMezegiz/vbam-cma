@@ -18,6 +18,7 @@
 use sqlx::SqlitePool;
 use std::{fs, io, path};
 
+mod empire;
 mod system;
 
 /// A Campaign, in addition to having the same meaning as in the VBAM rules,
@@ -51,6 +52,10 @@ impl Campaign {
         };
 
         // TODO Use options to create initial database tables
+
+        if let Err(e) = empire::create_table(&pool).await {
+            return Err(e.to_string())
+        }
         
         if let Err(e) = system::create_table(&pool).await {
             return Err(e.to_string())
