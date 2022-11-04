@@ -20,6 +20,7 @@ use std::{fs, io, path};
 
 mod empire;
 mod system;
+mod unit;
 
 /// A Campaign, in addition to having the same meaning as in the VBAM rules,
 /// is the control layer managing the conduct of the game itself. Every
@@ -58,6 +59,10 @@ impl Campaign {
         }
         
         if let Err(e) = system::create_table(&pool).await {
+            return Err(e.to_string())
+        }
+
+        if let Err(e) = unit::create_tables(&pool).await {
             return Err(e.to_string())
         }
 
