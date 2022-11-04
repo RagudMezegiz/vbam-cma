@@ -48,6 +48,7 @@ enum Message {
     HelpAbout,
 }
 
+// Application type.
 struct VBAMApp {
     app: app::App,
     main_win: window::Window,
@@ -56,6 +57,7 @@ struct VBAMApp {
 }
 
 impl VBAMApp {
+    // Create new application.
     fn new() -> Self {
         let app = app::App::default();
         let (s, rcvr) = app::channel();
@@ -96,6 +98,7 @@ impl VBAMApp {
         }
     }
 
+    // Run the application message loop.
     async fn run(&mut self) {
         while self.app.wait() {
             if let Some(msg) = self.rcvr.recv() {
@@ -311,6 +314,7 @@ fn center() -> (i32, i32) {
     )
 }
 
+// Show the about box.
 fn show_about() {
     let loc = center();
     let mut help = dialog::HelpDialog::new(

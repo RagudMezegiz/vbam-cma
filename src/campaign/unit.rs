@@ -53,6 +53,25 @@ impl GroundType {
 
 #[allow(unused)]
 #[derive(sqlx::FromRow)]
+struct GroundUnit {
+    id: i64,
+    gtype: i64,
+    loc: i64,
+}
+
+impl GroundUnit {
+    async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("CREATE TABLE IF NOT EXISTS ground_units (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            gtype INTEGER REFERENCES ground_types (id),
+            loc INTEGER REFERENCES systems (id))").execute(pool).await?;
+
+        Ok(())
+    }
+}
+
+#[allow(unused)]
+#[derive(sqlx::FromRow)]
 struct ShipType {
     id: i64,
     class: String,
@@ -66,7 +85,7 @@ struct ShipType {
 
 impl ShipType {
     async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
-        sqlx::query("CREATE TABLE IF NOT EXISTS ship_types(
+        sqlx::query("CREATE TABLE IF NOT EXISTS ship_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             class TEXT,
             hull TEXT,
@@ -107,10 +126,16 @@ impl Ship {
 
 /// Create unit tables with schemas corresponding to the options.
 pub async fn create_tables(pool: &SqlitePool /* TODO add options */) -> Result<(), Error> {
-    // Default to VBAM 3 pre-populated ground units table.
+    // Default to VBAM 3 pre-populated ground unit types table.
     GroundType::create_table(pool).await?;
+    GroundUnit::create_table(pool).await?;
 
     // Default to VBAM 3 ship and ship types.
     ShipType::create_table(pool).await?;
     Ship::create_table(pool).await
+}
+
+#[cfg(test)]
+mod tests {
+    // TODO Add tests
 }

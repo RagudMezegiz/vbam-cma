@@ -23,20 +23,48 @@ use sqlx::SqlitePool;
 struct Empire {
     id: i64,
     name: String,
+    tech: i32,
 }
 
 impl Empire {
     async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
         sqlx::query("CREATE TABLE IF NOT EXISTS empires (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT
-            )").execute(pool).await?;
-            
+            name TEXT,
+            tech INTEGER DEFAULT 0)").execute(pool).await?;
+
+        Ok(())
+    }
+}
+
+#[allow(unused)]
+#[derive(sqlx::FromRow)]
+struct Fleet {
+    id: i64,
+    name: String,
+    owner: i64,
+    location: i64,
+}
+
+impl Fleet {
+    async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("CREATE TABLE IF NOT EXISTS fleets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            owner INTEGER REFERENCES empires (id),
+            location INTEGER REFERENCES systems (id))").execute(pool).await?;
+
         Ok(())
     }
 }
 
 /// Create the Empires table with schema according to the options.
 pub async fn create_table(pool: &SqlitePool /* TODO add options */) -> Result<(), Error> {
-    Empire::create_table(pool).await
+    Empire::create_table(pool).await?;
+    Fleet::create_table(pool).await
+}
+
+#[cfg(test)]
+mod tests {
+    // TODO Add tests
 }

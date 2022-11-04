@@ -41,7 +41,7 @@ impl Campaign {
         let dbpath = database_path(&name)?;
         if dbpath.exists() {
             // This database already exists, so can't create a new campaign
-            // the same name.
+            // with the same name.
             return Err("Campaign already exists".to_string());
         }
 
@@ -158,4 +158,9 @@ pub fn list() -> io::Result<Vec<String>> {
             })
         .collect();
     Ok(names)
+}
+
+#[cfg(test)]
+mod tests {
+    // TODO Add tests
 }

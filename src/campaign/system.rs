@@ -20,7 +20,7 @@ use sqlx::SqlitePool;
 
 #[allow(unused)]
 #[derive(sqlx::FromRow)]
-struct System3 {
+struct System {
     id: i64,
     name: String,
     ptype: String,
@@ -29,12 +29,12 @@ struct System3 {
     pop: i32,
     mor: i32,
     ind: i32,
-    fails: i32,
     dev: i32,
-    owner: i32,
+    fails: i32,
+    owner: i64,
 }
 
-impl System3 {
+impl System {
     async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
         sqlx::query("CREATE TABLE IF NOT EXISTS system (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +55,7 @@ impl System3 {
 /// Create the Systems table with schema corresponding to the options.
 pub async fn create_table(pool: &SqlitePool /* TODO add options */) -> Result<(), Error> {
     // Default to playtest VBAM3 schema
-    System3::create_table(pool).await
+    System::create_table(pool).await
 }
 
 #[cfg(test)]
