@@ -18,6 +18,8 @@
 use sqlx::SqlitePool;
 use std::{fs, io, path};
 
+mod system;
+
 /// A Campaign, in addition to having the same meaning as in the VBAM rules,
 /// is the control layer managing the conduct of the game itself. Every
 /// campaign has a name which is used as the name of the backend database.
@@ -49,6 +51,10 @@ impl Campaign {
         };
 
         // TODO Use options to create initial database tables
+        
+        if let Err(e) = system::create_table(&pool).await {
+            return Err(e.to_string())
+        }
 
         Ok(Self { name, pool })
     }
