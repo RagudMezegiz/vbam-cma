@@ -78,7 +78,7 @@ impl VBAMApp {
         menu.add_emit("&Campaign/&Open...\t", Shortcut::Ctrl | 'o',
             menu::MenuFlag::Normal, s.clone(), Message::OpenCampaign);
 
-        menu.add_emit("&Campaign/&Close...\t", Shortcut::Ctrl | 'o',
+        menu.add_emit("&Campaign/&Close...\t", Shortcut::Ctrl | 'c',
             menu::MenuFlag::MenuDivider, s.clone(), Message::CloseCampaign);
 
         menu.add_emit("&Campaign/&Delete...\t", Shortcut::Ctrl | 'd',
