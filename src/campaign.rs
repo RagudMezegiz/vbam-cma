@@ -15,6 +15,8 @@
 
 //! The program interface to the back-end data and control layer.
 
+use sqlx::Error;
+use sqlx::Row;
 use sqlx::SqlitePool;
 use std::{fs, io, path};
 
@@ -28,12 +30,37 @@ mod unit;
 pub struct Campaign {
     name: String,
     pool: SqlitePool,
+    turn: i32,
 }
 
 impl Campaign {
     /// Close the data connection.
     pub async fn close(&self) {
         self.pool.close().await;
+    }
+
+    // Create the controls table and set turn number to default 0.
+    async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("CREATE TABLE IF NOT EXISTS control (
+            key TEXT PRIMARY KEY,
+            value TEXT)").execute(pool).await?;
+        sqlx::query("INSERT INTO control VALUES
+            ('turn', '0')").execute(pool).await?;
+        Ok(())
+    }
+
+    /// Delete an existing campaign.
+    pub fn delete(name: &str) -> Result<(), String> {
+        let dbpath = database_path(name)?;
+        match fs::remove_file(dbpath) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// Campaign name.
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     /// Create a new campaign.
@@ -52,6 +79,12 @@ impl Campaign {
             Err(e) => return Err(e.to_string())
         };
 
+        // Set the turn number to 0.
+        let turn = 0;
+        if let Err(e) = Campaign::create_table(&pool).await {
+            return Err(e.to_string())
+        }
+
         // TODO Use options to create initial database tables
 
         if let Err(e) = empire::create_table(&pool).await {
@@ -66,7 +99,7 @@ impl Campaign {
             return Err(e.to_string())
         }
 
-        Ok(Self { name, pool })
+        Ok(Self { name, pool, turn })
     }
 
     /// Open an existing campaign.
@@ -80,21 +113,22 @@ impl Campaign {
             Err(e) => return Err(e.to_string())
         };
 
-        Ok(Self { name: name.to_owned(), pool })
+        // Extract the control values.
+        let r = match sqlx::query(
+            "SELECT value FROM control WHERE key = 'turn'")
+            .fetch_one(&pool).await {
+                Ok(r) => r,
+                Err(e) => return Err(e.to_string())
+            };
+        let val: String = r.get("value");
+        let turn: i32 = val.parse().unwrap();
+
+        Ok(Self { name: name.to_owned(), pool, turn })
     }
 
-    /// Delete an existing campaign.
-    pub fn delete(name: &str) -> Result<(), String> {
-        let dbpath = database_path(name)?;
-        match fs::remove_file(dbpath) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.to_string()),
-        }
-    }
-
-    /// Campaign name.
-    pub fn name(&self) -> &String {
-        &self.name
+    /// Campaign title including turn number.
+    pub fn title(&self) -> String {
+        format!("{} Turn {}", self.name, self.turn)
     }
 }
 

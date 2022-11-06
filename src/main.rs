@@ -299,7 +299,7 @@ impl VBAMApp {
     // Set the main window title. Includes campaign name if one is active.
     fn set_title(&mut self) {
         let title = match &self.cmpgn {
-            Some(cm) => format!("{} ({} campaign)", MAIN_TITLE, cm.name()),
+            Some(cm) => format!("{} ({})", MAIN_TITLE, cm.title()),
             None => MAIN_TITLE.to_string(),
         };
         self.main_win.set_label(title.as_str());
