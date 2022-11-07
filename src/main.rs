@@ -35,7 +35,7 @@ const MAIN_HEIGHT: i32 = 600;
 const MAIN_TITLE: &str = "VBAM Campaign Moderator's Assistant";
 
 // Spacing for all the pack groups.
-const PACK_SPACING: i32 = 20;
+const PACK_SPACING: i32 = 5;
 
 // Menu item message types.
 #[derive(Clone)]
@@ -46,6 +46,8 @@ enum Message {
     CloseCampaign,
     DeleteCampaign,
     HelpAbout,
+    ShowSystems,
+    ShowEmpires,
 }
 
 // Application type.
@@ -85,7 +87,19 @@ impl VBAMApp {
             menu::MenuFlag::Normal, s.clone(), Message::DeleteCampaign);
 
         menu.add_emit("&Help/&About...\t", Shortcut::None,
-            menu::MenuFlag::Normal, s, Message::HelpAbout);
+            menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
+        
+        // Buttons to bring up various data displays.
+        button::Button::default()
+            .with_label("Systems")
+            .with_pos(5, 30)
+            .with_size(100, 30)
+            .emit(s.clone(), Message::ShowSystems);
+        button::Button::default()
+            .with_label("Empires")
+            .with_pos(110, 30)
+            .with_size(100, 30)
+            .emit(s, Message::ShowEmpires);
 
         main_win.end();
         main_win.show();
@@ -114,6 +128,8 @@ impl VBAMApp {
                     Message::CloseCampaign => self.close_campaign().await,
                     Message::DeleteCampaign => self.delete_campaign().await,
                     Message::HelpAbout => show_about(),
+                    Message::ShowSystems => self.show_systems().await,
+                    Message::ShowEmpires => self.show_empires().await,
                 }
             }
         }
@@ -303,6 +319,16 @@ impl VBAMApp {
             None => MAIN_TITLE.to_string(),
         };
         self.main_win.set_label(title.as_str());
+    }
+
+    // Show the empires.
+    async fn show_empires(&mut self) {
+        // TODO Show the empires display
+    }
+
+    // Show the complete set of systems, regardless of owner.
+    async fn show_systems(&mut self) {
+        // TODO Show the systems display
     }
 }
 
