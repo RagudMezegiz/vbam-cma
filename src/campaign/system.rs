@@ -15,6 +15,8 @@
 
 //! Interface to star systems.
 
+use std::io;
+
 use sqlx::Error;
 use sqlx::SqlitePool;
 
@@ -37,7 +39,7 @@ struct System {
 impl System {
     // Create the systems table.
     async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
-        sqlx::query("CREATE TABLE IF NOT EXISTS system (
+        sqlx::query("CREATE TABLE IF NOT EXISTS systems (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
             ptype TEXT,
@@ -48,7 +50,7 @@ impl System {
             ind INTEGER,
             dev INTEGER DEFAULT 0,
             fails INTEGER DEFAULT 0,
-            owner INTEGER REFERENCES empire (id))").execute(pool).await?;
+            owner INTEGER REFERENCES empires (id))").execute(pool).await?;
         Ok(())
     }
 
@@ -57,6 +59,96 @@ impl System {
         mor: i32, ind: i32) -> System {
         Self { id: 0, name: name.to_string(), ptype: ptype.to_string(),
             raw, cap, pop, mor, ind, dev: 0, fails: 0, owner: 0 }
+    }
+
+    // Create a new system from a CSV record
+    fn from_csv(rcd: csv::StringRecord) -> Result<System, csv::Error> {
+        let err = csv::Error::from(io::Error::from(io::ErrorKind::InvalidInput));
+        let name = match rcd.get(0) {
+            Some(n) => n,
+            None => return Err(err),
+        };
+        let ptype = match rcd.get(1) {
+            Some(p) => p,
+            None => return Err(err),
+        };
+        let raw = match rcd.get(2) {
+            Some(r) => match r.parse() {
+                Ok(r) => r,
+                Err(_) => return Err(err),
+            },
+            None => return Err(err),
+        };
+        let cap = match rcd.get(3) {
+            Some(c) => match c.parse() {
+                Ok(c) => c,
+                Err(_) => return Err(err),
+            },
+            None => return Err(err),
+        };
+        let pop = match rcd.get(4) {
+            Some(p) => match p.parse() {
+                Ok(p) => p,
+                Err(_) => return Err(err),
+            },
+            None => return Err(err),
+        };
+        let mor = match rcd.get(5) {
+            Some(m) => match m.parse() {
+                Ok(m) => m,
+                Err(_) => return Err(err),
+            },
+            None => return Err(err),
+        };
+        let ind = match rcd.get(6) {
+            Some(i) => match i.parse() {
+                Ok(i) => i,
+                Err(_) => return Err(err),
+            },
+            None => return Err(err),
+        };
+
+        Ok(Self::new(name, ptype, raw, cap, pop, mor, ind))
+    }
+
+    // Import systems from a CSV text stream and write to database.
+    async fn import<R>(mut rdr: csv::Reader<R>, pool: &SqlitePool) -> Result<(), String>
+        where R: io::Read {
+        for result in rdr.records() {
+            match result {
+                Ok(rcd) => {
+                    if let Ok(sys) = Self::from_csv(rcd) {
+                        if let Err(e) = sys.insert(pool).await {
+                            return Err(e.to_string())
+                        }
+                    }
+                },
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+        Ok(())
+    }
+
+    // Insert this system into the database.
+    async fn insert(&self, pool: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("INSERT INTO systems (name, ptype, raw, cap, pop, mor, ind)
+            VALUES(?,?,?,?,?,?,?)")
+            .bind(self.name.as_str())
+            .bind(self.ptype.as_str())
+            .bind(self.raw)
+            .bind(self.cap)
+            .bind(self.pop)
+            .bind(self.mor)
+            .bind(self.ind)
+            .execute(pool).await?;
+        Ok(())
+    }
+
+    // Select a system from the database by name.
+    async fn select_by_name(name: &str, pool: &SqlitePool) -> Result<System, Error> {
+        sqlx::query_as("SELECT * FROM systems WHERE NAME = ?")
+            .bind(name)
+            .fetch_one(pool).await
     }
 }
 
@@ -68,7 +160,10 @@ pub async fn create_table(pool: &SqlitePool /* TODO add options */) -> Result<()
 
 #[cfg(test)]
 mod tests {
+    use crate::campaign::Campaign;
     use crate::campaign::system::System;
+    use csv::Reader;
+    use sqlx::SqlitePool;
 
     const SYSTEM_IMPORT: &[u8] = "NAME,TYPE,RAW,CAP,POP,MOR,IND\n\
         Senor Prime,HW,5,12,10,8,10\n\
@@ -92,21 +187,34 @@ mod tests {
     #[test]
     fn deserialize() {
         let exp = systems();
-        let mut rdr = csv::Reader::from_reader(SYSTEM_IMPORT);
+        let mut rdr = Reader::from_reader(SYSTEM_IMPORT);
         let mut count = 0;
         for result in rdr.records() {
             let record = result.unwrap();
-            let val = System::new(
-                record.get(0).unwrap(),
-                record.get(1).unwrap(),
-                record.get(2).unwrap().parse().unwrap(),
-                record.get(3).unwrap().parse().unwrap(),
-                record.get(4).unwrap().parse().unwrap(),
-                record.get(5).unwrap().parse().unwrap(),
-                record.get(6).unwrap().parse().unwrap());
+            let val = System::from_csv(record).unwrap();
             assert!(exp.contains(&val));
             count += 1;
         }
         assert_eq!(count, exp.len());
+    }
+
+    #[tokio::test]
+    async fn import() {
+        let rdr = Reader::from_reader(SYSTEM_IMPORT);
+        let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+        Campaign::create_tables(&pool).await.unwrap();
+        System::import(rdr, &pool).await.unwrap();
+        for exp in systems() {
+            let act = System::select_by_name(exp.name.as_str(), &pool).await.unwrap();
+            assert_eq!(exp.name, act.name);
+            assert_eq!(exp.ptype, act.ptype);
+            assert_eq!(exp.raw, act.raw);
+            assert_eq!(exp.cap, act.cap);
+            assert_eq!(exp.pop, act.pop);
+            assert_eq!(exp.mor, act.mor);
+            assert_eq!(exp.ind, act.ind);
+            assert_eq!(exp.dev, act.dev);
+            assert_eq!(exp.fails, act.fails);
+        }
     }
 }

@@ -49,6 +49,14 @@ impl Campaign {
         Ok(())
     }
 
+    // Create all the tables in the campaign database.
+    async fn create_tables(pool: &SqlitePool) -> Result<(), Error> {
+        Self::create_table(&pool).await?;
+        empire::create_table(&pool).await?;
+        system::create_table(&pool).await?;
+        unit::create_tables(&pool).await
+    }
+
     /// Delete an existing campaign.
     pub fn delete(name: &str) -> Result<(), String> {
         let dbpath = database_path(name)?;
@@ -81,21 +89,9 @@ impl Campaign {
 
         // Set the turn number to 0.
         let turn = 0;
-        if let Err(e) = Campaign::create_table(&pool).await {
-            return Err(e.to_string())
-        }
 
         // TODO Use options to create initial database tables
-
-        if let Err(e) = empire::create_table(&pool).await {
-            return Err(e.to_string())
-        }
-        
-        if let Err(e) = system::create_table(&pool).await {
-            return Err(e.to_string())
-        }
-
-        if let Err(e) = unit::create_tables(&pool).await {
+        if let Err(e) = Self::create_tables(&pool).await {
             return Err(e.to_string())
         }
 
