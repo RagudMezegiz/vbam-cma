@@ -51,10 +51,10 @@ impl Campaign {
 
     // Create all the tables in the campaign database.
     async fn create_tables(pool: &SqlitePool) -> Result<(), Error> {
-        Self::create_table(&pool).await?;
-        empire::create_table(&pool).await?;
-        system::create_table(&pool).await?;
-        unit::create_tables(&pool).await
+        Self::create_table(pool).await?;
+        empire::create_table(pool).await?;
+        system::create_table(pool).await?;
+        unit::create_tables(pool).await
     }
 
     /// Delete an existing campaign.
