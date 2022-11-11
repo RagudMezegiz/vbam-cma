@@ -23,6 +23,7 @@ use sqlx::SqlitePool;
 struct Empire {
     id: i64,
     name: String,
+    treasury: i32,
     tech: i32,
 }
 
@@ -31,6 +32,7 @@ impl Empire {
         sqlx::query("CREATE TABLE IF NOT EXISTS empires (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
+            treasury INTEGER DEFAULT 0,
             tech INTEGER DEFAULT 0)").execute(pool).await?;
 
         Ok(())
