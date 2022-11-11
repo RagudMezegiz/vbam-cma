@@ -93,7 +93,8 @@ impl ShipType {
             cr INTEGER,
             atk INTEGER,
             def INTEGER,
-            cap INTEGER DEFAULT 0)").execute(pool).await?;
+            cap INTEGER DEFAULT 0,
+            empire INTEGER REFERENCES empires (id))").execute(pool).await?;
 
         // TODO Insert civilian units? Or require import of everything?
 
