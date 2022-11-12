@@ -12,6 +12,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+mod campaign;
+
 use fltk::{
     app,
     button,
@@ -25,17 +27,22 @@ use fltk::{
     window,
 };
 
-mod campaign;
+// Main window base title
+const MAIN_TITLE: &str = "VBAM Campaign Moderator's Assistant";
 
 // Width and height of main window
 const MAIN_WIDTH: i32 = 800;
 const MAIN_HEIGHT: i32 = 600;
 
-// Main window base title
-const MAIN_TITLE: &str = "VBAM Campaign Moderator's Assistant";
+// Menu height
+const MENU_HEIGHT: i32 = 25;
 
-// Spacing for all the pack groups.
-const PACK_SPACING: i32 = 5;
+// Width and height of a standard button
+const BTN_WIDTH: i32 = 100;
+const BTN_HEIGHT: i32 = 30;
+
+// Spacing between all components.
+const SPACING: i32 = 5;
 
 // Menu item message types.
 #[derive(Clone)]
@@ -69,7 +76,7 @@ impl VBAMApp {
             .center_screen()
             .with_label(MAIN_TITLE);
 
-        let mut menu = menu::MenuBar::default().with_size(MAIN_WIDTH, 25);
+        let mut menu = menu::MenuBar::default().with_size(MAIN_WIDTH, MENU_HEIGHT);
 
         menu.add_emit("&File/&Quit\t", Shortcut::Ctrl | 'q',
             menu::MenuFlag::Normal, s.clone(), Message::Quit);
@@ -90,15 +97,16 @@ impl VBAMApp {
             menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
         
         // Buttons to bring up various data displays.
+        let button_y = MENU_HEIGHT + SPACING;
         button::Button::default()
             .with_label("Systems")
-            .with_pos(5, 30)
-            .with_size(100, 30)
+            .with_pos(SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT)
             .emit(s.clone(), Message::ShowSystems);
         button::Button::default()
             .with_label("Empires")
-            .with_pos(110, 30)
-            .with_size(100, 30)
+            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT)
             .emit(s, Message::ShowEmpires);
 
         main_win.end();
@@ -150,7 +158,7 @@ impl VBAMApp {
         let mut vbox = group::Pack::default()
             .with_size(300, 300)
             .with_type(group::PackType::Vertical);
-        vbox.set_spacing(PACK_SPACING);
+        vbox.set_spacing(SPACING);
         frame::Frame::default()
             .with_label("New Campaign Name");
         let name_input = input::Input::default();
@@ -161,7 +169,7 @@ impl VBAMApp {
             .with_align(Align::BottomRight)
             .with_size(300, 0)
             .with_type(group::PackType::Horizontal);
-        bbox.set_spacing(PACK_SPACING);
+        bbox.set_spacing(SPACING);
         let mut ok = button::Button::default()
             .with_label("Ok");
         let mut cancel = button::Button::default()
@@ -271,13 +279,13 @@ impl VBAMApp {
         let mut vbox = group::Pack::default()
             .with_size(150, 150)
             .with_type(group::PackType::Vertical);
-        vbox.set_spacing(PACK_SPACING);
+        vbox.set_spacing(SPACING);
         let mut choice = menu::Choice::default();
         choice.add_choice(names.as_str());
         let mut bbox = group::Pack::default()
             .with_size(150, 0)
             .with_type(group::PackType::Horizontal);
-        bbox.set_spacing(PACK_SPACING);
+        bbox.set_spacing(SPACING);
         let mut ok = button::Button::default()
             .with_label("Ok");
         let mut cancel = button::Button::default()
@@ -328,7 +336,36 @@ impl VBAMApp {
 
     // Show the complete set of systems, regardless of owner.
     async fn show_systems(&mut self) {
-        // TODO Show the systems display
+        let c = match &self.cmpgn {
+            Some(c) => c,
+            None => return
+        };
+
+        let mut wind = window::Window::default()
+            .with_size(600, 400)
+            .with_label("Systems")
+            .center_screen();
+        let mut browse = fltk::browser::SelectBrowser::default()
+            .with_pos(5, 5)
+            .with_size(MAIN_WIDTH - 10, 300);
+        browse.set_column_widths(&[100,100,40,40,40,40,40,40,40,100]);
+        browse.set_column_char('\t');
+        browse.add("Name\tType\tRAW\tCAP\tPOP\tMOR\tIND\tDev\tFails\tOwner");
+
+        if let Ok(v) = c.systems().await {
+            for s in v {
+                browse.add_with_data(s.as_row(c.pool()).await.as_str(), s);
+            }
+        }
+
+        // TODO Add 'New', 'Edit', 'Delete', and 'Close' buttons
+
+        wind.end();
+        wind.show();
+        
+        while wind.shown() {
+            app::wait();
+        }
     }
 }
 

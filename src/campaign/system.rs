@@ -20,9 +20,11 @@ use std::io;
 use sqlx::Error;
 use sqlx::SqlitePool;
 
+use super::empire;
+
 #[allow(unused)]
-#[derive(sqlx::FromRow, Debug, PartialEq)]
-struct System {
+#[derive(sqlx::FromRow, Clone, Debug, PartialEq)]
+pub struct System {
     id: i64,
     name: String,
     ptype: String,
@@ -37,6 +39,13 @@ struct System {
 }
 
 impl System {
+    // Convert to string as a row of tab-separated fields.
+    pub async fn as_row(&self, pool: &SqlitePool) -> String {
+        format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            self.name, self.ptype, self.raw, self.cap, self.pop, self.mor,
+            self.ind, self.dev, self.fails, self.get_owner_name(pool).await)
+    }
+
     // Create the systems table.
     async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
         sqlx::query("CREATE TABLE IF NOT EXISTS systems (
@@ -52,13 +61,6 @@ impl System {
             fails INTEGER DEFAULT 0,
             owner INTEGER REFERENCES empires (id))").execute(pool).await?;
         Ok(())
-    }
-
-    // Create a new system.
-    fn new(name: &str, ptype: &str, raw: i32, cap: i32, pop: i32,
-        mor: i32, ind: i32) -> System {
-        Self { id: 0, name: name.to_string(), ptype: ptype.to_string(),
-            raw, cap, pop, mor, ind, dev: 0, fails: 0, owner: 0 }
     }
 
     // Create a new system from a CSV record
@@ -111,6 +113,14 @@ impl System {
         Ok(Self::new(name, ptype, raw, cap, pop, mor, ind))
     }
 
+    // Return the owning empire's name, or "None" if unowned.
+    async fn get_owner_name(&self, pool: &SqlitePool) -> String {
+        match empire::by_id(pool, self.owner).await {
+            Some(e) => e.name(),
+            None => "None".to_string(),
+        }
+    }
+
     // Import systems from a CSV text stream and write to database.
     async fn import<R>(mut rdr: csv::Reader<R>, pool: &SqlitePool) -> Result<(), String>
         where R: io::Read {
@@ -144,6 +154,19 @@ impl System {
         Ok(())
     }
 
+    // Create a new system.
+    fn new(name: &str, ptype: &str, raw: i32, cap: i32, pop: i32,
+        mor: i32, ind: i32) -> System {
+        Self { id: 0, name: name.to_string(), ptype: ptype.to_string(),
+            raw, cap, pop, mor, ind, dev: 0, fails: 0, owner: 0 }
+    }
+
+    // Select all systems from the database.
+    async fn select_all(pool: &SqlitePool) -> Result<Vec<System>, Error> {
+        sqlx::query_as("SELECT * FROM systems")
+            .fetch_all(pool).await
+    }
+
     // Select a system from the database by name.
     async fn select_by_name(name: &str, pool: &SqlitePool) -> Result<System, Error> {
         sqlx::query_as("SELECT * FROM systems WHERE NAME = ?")
@@ -156,6 +179,11 @@ impl System {
 pub async fn create_table(pool: &SqlitePool /* TODO add options */) -> Result<(), Error> {
     // Default to playtest VBAM3 schema
     System::create_table(pool).await
+}
+
+/// Return all systems from the table.
+pub async fn get_all(pool: &SqlitePool) -> Result<Vec<System>, Error> {
+    System::select_all(pool).await
 }
 
 #[cfg(test)]

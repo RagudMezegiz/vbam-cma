@@ -20,7 +20,7 @@ use sqlx::SqlitePool;
 
 #[allow(unused)]
 #[derive(sqlx::FromRow)]
-struct Empire {
+pub struct Empire {
     id: i64,
     name: String,
     treasury: i32,
@@ -37,11 +37,26 @@ impl Empire {
 
         Ok(())
     }
+
+    /// Return the empire short name.
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
 }
 
 /// Create the Empires table with schema according to the options.
 pub async fn create_table(pool: &SqlitePool /* TODO add options */) -> Result<(), Error> {
     Empire::create_table(pool).await
+}
+
+/// Return the empire with the given ID, or None.
+pub async fn by_id(pool: &SqlitePool, id: i64) -> Option<Empire> {
+    match sqlx::query_as("SELECT * FROM empires WHERE id = ?")
+        .bind(id)
+        .fetch_one(pool).await {
+        Ok(e) => Some(e),
+        Err(_) => None,
+    }
 }
 
 #[cfg(test)]

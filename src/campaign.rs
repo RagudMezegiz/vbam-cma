@@ -15,14 +15,15 @@
 
 //! The program interface to the back-end data and control layer.
 
+mod empire;
+mod system;
+mod unit;
+
 use sqlx::Error;
 use sqlx::Row;
 use sqlx::SqlitePool;
 use std::{fs, io, path};
-
-mod empire;
-mod system;
-mod unit;
+use system::System;
 
 /// A Campaign, in addition to having the same meaning as in the VBAM rules,
 /// is the control layer managing the conduct of the game itself. Every
@@ -120,6 +121,19 @@ impl Campaign {
         let turn: i32 = val.parse().unwrap();
 
         Ok(Self { name: name.to_owned(), pool, turn })
+    }
+
+    /// Campaign database pool.
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+
+    /// Return the systems in the campaign.
+    pub async fn systems(&self) -> Result<Vec<System>, String> {
+        match system::get_all(&self.pool).await {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e.to_string()),
+        }
     }
 
     /// Campaign title including turn number.
