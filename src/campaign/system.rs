@@ -23,7 +23,7 @@ use sqlx::SqlitePool;
 use super::empire;
 
 #[allow(unused)]
-#[derive(sqlx::FromRow, Clone, Debug, PartialEq)]
+#[derive(sqlx::FromRow, Clone, Debug, PartialEq, Eq)]
 pub struct System {
     id: i64,
     name: String,
