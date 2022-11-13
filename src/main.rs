@@ -332,6 +332,7 @@ impl VBAMApp {
     // Show the empires.
     async fn show_empires(&mut self) {
         // TODO Show the empires display
+        println!("Show empires");
     }
 
     // Show the complete set of systems, regardless of owner.
@@ -358,13 +359,37 @@ impl VBAMApp {
             }
         }
 
-        // TODO Add 'New', 'Edit', 'Delete', and 'Close' buttons
+        let (s, r) = app::channel();
+
+        let button_y = 310; // Browser bottom plus spacing
+        button::Button::default()
+            .with_label("New")
+            .with_pos(SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT)
+            .emit(s.clone(), "New");
+        button::Button::default()
+            .with_label("Edit")
+            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT)
+            .emit(s.clone(), "Edit");
+        button::Button::default()
+            .with_label("Delete")
+            .with_pos(SPACING + 2*(BTN_WIDTH + SPACING), button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT)
+            .emit(s, "Delete");
 
         wind.end();
         wind.show();
         
-        while wind.shown() {
-            app::wait();
+        while wind.shown() && app::wait() {
+            if let Some(m) = r.recv() {
+                match m {
+                    "New" => println!("New system"),
+                    "Edit" => println!("Edit system"),
+                    "Delete" => println!("Delete system"),
+                    _ => (),
+                }
+            }
         }
     }
 }
