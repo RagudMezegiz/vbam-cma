@@ -18,9 +18,8 @@ use fltk::{
     app,
     button,
     dialog,
-    enums::{Align, Shortcut},
+    enums::Shortcut,
     frame,
-    group,
     input,
     menu,
     prelude::*,
@@ -34,8 +33,8 @@ const MAIN_TITLE: &str = "VBAM Campaign Moderator's Assistant";
 const MAIN_WIDTH: i32 = 800;
 const MAIN_HEIGHT: i32 = 600;
 
-// Menu height
-const MENU_HEIGHT: i32 = 25;
+// Height of "text" controls (menus, labels, drop-downs, inputs)
+const TEXT_HEIGHT: i32 = 25;
 
 // Width and height of a standard button
 const BTN_WIDTH: i32 = 100;
@@ -76,7 +75,7 @@ impl VBAMApp {
             .center_screen()
             .with_label(MAIN_TITLE);
 
-        let mut menu = menu::MenuBar::default().with_size(MAIN_WIDTH, MENU_HEIGHT);
+        let mut menu = menu::MenuBar::default().with_size(MAIN_WIDTH, TEXT_HEIGHT);
 
         menu.add_emit("&File/&Quit\t", Shortcut::Ctrl | 'q',
             menu::MenuFlag::Normal, s.clone(), Message::Quit);
@@ -97,7 +96,7 @@ impl VBAMApp {
             menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
         
         // Buttons to bring up various data displays.
-        let button_y = MENU_HEIGHT + SPACING;
+        let button_y = TEXT_HEIGHT + SPACING;
         button::Button::default()
             .with_label("Systems")
             .with_pos(SPACING, button_y)
@@ -150,35 +149,34 @@ impl VBAMApp {
             self.cmpgn = None;
         }
 
+        let total_width = 300;
+        let total_height = 300;
+        let full_width = total_width - 2*SPACING;
+
         let mut wind = window::Window::default()
-            .with_size(300, 300)
+            .with_size(total_width, total_height)
             .center_screen()
             .with_label("Create New Campaign");
 
-        let mut vbox = group::Pack::default()
-            .with_size(300, 300)
-            .with_type(group::PackType::Vertical);
-        vbox.set_spacing(SPACING);
         frame::Frame::default()
-            .with_label("New Campaign Name");
-        let name_input = input::Input::default();
+            .with_label("New Campaign Name")
+            .with_pos(SPACING, SPACING)
+            .with_size(full_width, TEXT_HEIGHT);
+        let name_input = input::Input::default()
+            .with_pos(SPACING, 2*SPACING + TEXT_HEIGHT)
+            .with_size(full_width, TEXT_HEIGHT);
 
         // TODO Add Campaign options controls
 
-        let mut bbox = group::Pack::default()
-            .with_align(Align::BottomRight)
-            .with_size(300, 0)
-            .with_type(group::PackType::Horizontal);
-        bbox.set_spacing(SPACING);
+        let button_y = total_height - BTN_HEIGHT - SPACING;
         let mut ok = button::Button::default()
-            .with_label("Ok");
+            .with_label("Ok")
+            .with_pos(SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT);
         let mut cancel = button::Button::default()
-            .with_label("Cancel");
-        bbox.end();
-        bbox.auto_layout();
-
-        vbox.end();
-        vbox.auto_layout();
+            .with_label("Cancel")
+            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT);
 
         wind.end();
         wind.make_modal(true);
@@ -272,28 +270,27 @@ impl VBAMApp {
             _ => return None
         };
 
+        let total_width = SPACING + 2 * (BTN_WIDTH + SPACING);
+        let total_height = 150;
+        let full_width = total_width - 2 * SPACING;
+
         let mut wind = window::Window::default()
-            .with_size(150, 150)
+            .with_size(total_width, total_height)
             .with_label(format!("{} Campaign", function).as_str())
             .center_screen();
-        let mut vbox = group::Pack::default()
-            .with_size(150, 150)
-            .with_type(group::PackType::Vertical);
-        vbox.set_spacing(SPACING);
-        let mut choice = menu::Choice::default();
+        let mut choice = menu::Choice::default()
+            .with_pos(SPACING, SPACING)
+            .with_size(full_width, TEXT_HEIGHT);
         choice.add_choice(names.as_str());
-        let mut bbox = group::Pack::default()
-            .with_size(150, 0)
-            .with_type(group::PackType::Horizontal);
-        bbox.set_spacing(SPACING);
+        let button_y = total_height - SPACING - BTN_HEIGHT;
         let mut ok = button::Button::default()
-            .with_label("Ok");
+            .with_label("Ok")
+            .with_pos(SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT);
         let mut cancel = button::Button::default()
-            .with_label("Cancel");
-        bbox.end();
-        bbox.auto_layout();
-        vbox.end();
-        vbox.auto_layout();
+            .with_label("Cancel")
+            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT);
         wind.end();
         wind.make_modal(true);
         wind.show();
