@@ -67,6 +67,11 @@ impl Campaign {
         }
     }
 
+    /// Import systems from the specified CSV file.
+    pub async fn import_systems(&mut self, file: &str) -> Result<(), String> {
+        system::import(&self.pool, file).await
+    }
+
     /// Campaign name.
     pub fn name(&self) -> &String {
         &self.name

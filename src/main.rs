@@ -14,6 +14,8 @@
 // limitations under the License.
 mod campaign;
 
+use campaign::Campaign;
+
 use fltk::{
     app,
     button,
@@ -23,7 +25,7 @@ use fltk::{
     input,
     menu,
     prelude::*,
-    window,
+    window, browser::SelectBrowser,
 };
 
 // Main window base title
@@ -263,6 +265,37 @@ impl VBAMApp {
         }
     }
 
+    // Fill the system browser with the campaign's data.
+    async fn fill_system_browser(browse: &mut SelectBrowser, c: &Campaign) {
+        browse.clear();
+        browse.add("Name\tType\tRAW\tCAP\tPOP\tMOR\tIND\tDev\tFails\tOwner");
+
+        if let Ok(v) = c.systems().await {
+            for s in v {
+                browse.add_with_data(s.as_row(c.pool()).await.as_str(), s);
+            }
+        }
+    }
+
+    // Import a list of systems from a CSV file.
+    async fn import_systems(&mut self) {
+        let c = match &mut self.cmpgn {
+            Some(c) => c,
+            None => return,
+        };
+
+        // Choose the CSV file
+        if let Some(file) = dialog::file_chooser(
+            "Import systems from...",
+            "*.csv",
+            ".",
+            true) {
+            if let Err(e) = c.import_systems(file.as_str()).await {
+                dialog::alert_default(e.as_str())
+            }
+        }
+    }
+
     // Pop up the select campaign dialog and return the user's choice.
     fn list_campaigns(&mut self, function: String) -> Option<String> {
         let names = match campaign::list() {
@@ -334,10 +367,9 @@ impl VBAMApp {
 
     // Show the complete set of systems, regardless of owner.
     async fn show_systems(&mut self) {
-        let c = match &self.cmpgn {
-            Some(c) => c,
-            None => return
-        };
+        if self.cmpgn.is_none() {
+            return
+        }
 
         let mut wind = window::Window::default()
             .with_size(600, 400)
@@ -348,13 +380,7 @@ impl VBAMApp {
             .with_size(MAIN_WIDTH - 10, 300);
         browse.set_column_widths(&[100,100,40,40,40,40,40,40,40,100]);
         browse.set_column_char('\t');
-        browse.add("Name\tType\tRAW\tCAP\tPOP\tMOR\tIND\tDev\tFails\tOwner");
-
-        if let Ok(v) = c.systems().await {
-            for s in v {
-                browse.add_with_data(s.as_row(c.pool()).await.as_str(), s);
-            }
-        }
+        Self::fill_system_browser(&mut browse, self.cmpgn.as_ref().unwrap()).await;
 
         let (s, r) = app::channel();
 
@@ -363,17 +389,22 @@ impl VBAMApp {
             .with_label("New")
             .with_pos(SPACING, button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT)
-            .emit(s.clone(), "New");
+            .emit(s, "New");
         button::Button::default()
             .with_label("Edit")
             .with_pos(BTN_WIDTH + 2*SPACING, button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT)
-            .emit(s.clone(), "Edit");
+            .emit(s, "Edit");
         button::Button::default()
             .with_label("Delete")
             .with_pos(SPACING + 2*(BTN_WIDTH + SPACING), button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT)
             .emit(s, "Delete");
+        button::Button::default()
+            .with_label("Import")
+            .with_pos(SPACING + 3*(BTN_WIDTH + SPACING), button_y)
+            .with_size(BTN_WIDTH, BTN_HEIGHT)
+            .emit(s, "Import");
 
         wind.end();
         wind.show();
@@ -384,6 +415,11 @@ impl VBAMApp {
                     "New" => println!("New system"),
                     "Edit" => println!("Edit system"),
                     "Delete" => println!("Delete system"),
+                    "Import" => {
+                        self.import_systems().await;
+                        Self::fill_system_browser(&mut browse,
+                            self.cmpgn.as_ref().unwrap()).await
+                    },
                     _ => (),
                 }
             }

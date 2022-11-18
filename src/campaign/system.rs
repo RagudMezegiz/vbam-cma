@@ -186,6 +186,15 @@ pub async fn get_all(pool: &SqlitePool) -> Result<Vec<System>, Error> {
     System::select_all(pool).await
 }
 
+/// Import systems from a CSV file.
+pub async fn import(pool: &SqlitePool, file: &str) -> Result<(), String> {
+    let r = match csv::Reader::from_path(file) {
+        Ok(r) => r,
+        Err(e) => return Err(e.to_string()),
+    };
+    System::import(r, pool).await
+}
+
 #[cfg(test)]
 mod tests {
     use crate::campaign::Campaign;
