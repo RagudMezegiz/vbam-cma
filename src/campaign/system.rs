@@ -17,50 +17,60 @@
 
 use std::io;
 
-use sqlx::Error;
-use sqlx::SqlitePool;
-
-use super::empire;
-
 #[allow(unused)]
 #[derive(sqlx::FromRow, Clone, Debug, PartialEq, Eq)]
 pub struct System {
-    id: i64,
-    name: String,
-    ptype: String,
-    raw: i32,
-    cap: i32,
-    pop: i32,
-    mor: i32,
-    ind: i32,
-    dev: i32,
-    fails: i32,
-    owner: i64,
+    pub id: i64,
+    pub name: String,
+    pub ptype: String,
+    pub raw: i32,
+    pub cap: i32,
+    pub pop: i32,
+    pub mor: i32,
+    pub ind: i32,
+    pub dev: i32,
+    pub fails: i32,
+    pub owner: i64,
+    #[sqlx(default)]
+    pub owner_name: String,
 }
 
 impl System {
-    // Convert to string as a row of tab-separated fields.
-    pub async fn as_row(&self, pool: &SqlitePool) -> String {
-        format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            self.name, self.ptype, self.raw, self.cap, self.pop, self.mor,
-            self.ind, self.dev, self.fails, self.get_owner_name(pool).await)
+    /// Convert to string as a row of tab-separated fields.
+    pub fn as_row(&self) -> String {
+        format!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            self.name,
+            self.ptype,
+            self.raw,
+            self.cap,
+            self.pop,
+            self.mor,
+            self.ind,
+            self.dev,
+            self.fails,
+            self.owner_name
+        )
     }
 
-    // Create the systems table.
-    async fn create_table(pool: &SqlitePool) -> Result<(), Error> {
-        sqlx::query("CREATE TABLE IF NOT EXISTS systems (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            ptype TEXT,
-            raw INTEGER,
-            cap INTEGER,
-            pop INTEGER,
-            mor INTEGER,
-            ind INTEGER,
-            dev INTEGER DEFAULT 0,
-            fails INTEGER DEFAULT 0,
-            owner INTEGER REFERENCES empires (id))").execute(pool).await?;
-        Ok(())
+    /// Read systems from a CSV reader.
+    pub fn read_csv<R>(mut rdr: csv::Reader<R>) -> Result<Vec<System>, String>
+    where
+        R: io::Read,
+    {
+        let mut v = Vec::new();
+        for result in rdr.records() {
+            match result {
+                Ok(rcd) => {
+                    if let Ok(sys) = Self::from_csv(rcd) {
+                        v.push(sys)
+                    }
+                }
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+
+        Ok(v)
     }
 
     // Create a new system from a CSV record
@@ -113,145 +123,64 @@ impl System {
         Ok(Self::new(name, ptype, raw, cap, pop, mor, ind))
     }
 
-    // Return the owning empire's name, or "None" if unowned.
-    async fn get_owner_name(&self, pool: &SqlitePool) -> String {
-        match empire::by_id(pool, self.owner).await {
-            Some(e) => e.name(),
-            None => "None".to_string(),
-        }
-    }
-
-    // Import systems from a CSV text stream and write to database.
-    async fn import<R>(mut rdr: csv::Reader<R>, pool: &SqlitePool) -> Result<(), String>
-        where R: io::Read {
-        for result in rdr.records() {
-            match result {
-                Ok(rcd) => {
-                    if let Ok(sys) = Self::from_csv(rcd) {
-                        if let Err(e) = sys.insert(pool).await {
-                            return Err(e.to_string())
-                        }
-                    }
-                },
-                Err(e) => return Err(e.to_string()),
-            }
-        }
-        Ok(())
-    }
-
-    // Insert this system into the database.
-    async fn insert(&self, pool: &SqlitePool) -> Result<(), Error> {
-        sqlx::query("INSERT INTO systems (name, ptype, raw, cap, pop, mor, ind)
-            VALUES(?,?,?,?,?,?,?)")
-            .bind(self.name.as_str())
-            .bind(self.ptype.as_str())
-            .bind(self.raw)
-            .bind(self.cap)
-            .bind(self.pop)
-            .bind(self.mor)
-            .bind(self.ind)
-            .execute(pool).await?;
-        Ok(())
-    }
-
     // Create a new system.
-    fn new(name: &str, ptype: &str, raw: i32, cap: i32, pop: i32,
-        mor: i32, ind: i32) -> System {
-        Self { id: 0, name: name.to_string(), ptype: ptype.to_string(),
-            raw, cap, pop, mor, ind, dev: 0, fails: 0, owner: 0 }
-    }
-
-    // Select all systems from the database.
-    async fn select_all(pool: &SqlitePool) -> Result<Vec<System>, Error> {
-        sqlx::query_as("SELECT * FROM systems")
-            .fetch_all(pool).await
-    }
-
-    // Select a system from the database by name.
-    async fn select_by_name(name: &str, pool: &SqlitePool) -> Result<System, Error> {
-        sqlx::query_as("SELECT * FROM systems WHERE NAME = ?")
-            .bind(name)
-            .fetch_one(pool).await
+    fn new(name: &str, ptype: &str, raw: i32, cap: i32, pop: i32, mor: i32, ind: i32) -> System {
+        Self {
+            id: 0,
+            name: name.to_string(),
+            ptype: ptype.to_string(),
+            raw,
+            cap,
+            pop,
+            mor,
+            ind,
+            dev: 0,
+            fails: 0,
+            owner: 0,
+            owner_name: "None".to_string(),
+        }
     }
 }
 
-/// Create the Systems table with schema corresponding to the options.
-pub async fn create_table(pool: &SqlitePool /* TODO add options */) -> Result<(), Error> {
-    // Default to playtest VBAM3 schema
-    System::create_table(pool).await
-}
-
-/// Return all systems from the table.
-pub async fn get_all(pool: &SqlitePool) -> Result<Vec<System>, Error> {
-    System::select_all(pool).await
-}
-
-/// Import systems from a CSV file.
-pub async fn import(pool: &SqlitePool, file: &str) -> Result<(), String> {
+/// Load a set of systems from a CSV file. Columns should be in order:
+/// NAME,TYPE,RAW,CAP,POP,MOR,IND
+pub fn read_from_csv(file: &str) -> Result<Vec<System>, String> {
     let r = match csv::Reader::from_path(file) {
         Ok(r) => r,
         Err(e) => return Err(e.to_string()),
     };
-    System::import(r, pool).await
+    System::read_csv(r)
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::campaign::Campaign;
+pub mod tests {
     use crate::campaign::system::System;
     use csv::Reader;
-    use sqlx::SqlitePool;
 
     const SYSTEM_IMPORT: &[u8] = "NAME,TYPE,RAW,CAP,POP,MOR,IND\n\
         Senor Prime,HW,5,12,10,8,10\n\
         Vadurrinia,Adaptable,3,8,4,3,3\n\
         Zev'rch,Barren,2,6,3,2,2\n\
-        Tibron,Barren,4,6,3,2,3\n".as_bytes();
+        Tibron,Barren,4,6,3,2,3\n"
+        .as_bytes();
 
-    fn systems() -> Vec<System> {
+    pub fn systems() -> Vec<System> {
         let mut sys = Vec::new();
-        sys.push(System::new("Senor Prime", "HW",
-            5, 12, 10, 8, 10));
-        sys.push(System::new("Vadurrinia", "Adaptable",
-            3, 8, 4, 3, 3));
-        sys.push(System::new("Zev'rch", "Barren",
-            2, 6, 3, 2, 2));
-        sys.push(System::new("Tibron", "Barren",
-            4, 6, 3, 2, 3));
+        sys.push(System::new("Senor Prime", "HW", 5, 12, 10, 8, 10));
+        sys.push(System::new("Vadurrinia", "Adaptable", 3, 8, 4, 3, 3));
+        sys.push(System::new("Zev'rch", "Barren", 2, 6, 3, 2, 2));
+        sys.push(System::new("Tibron", "Barren", 4, 6, 3, 2, 3));
         sys
     }
 
     #[test]
     fn deserialize() {
         let exp = systems();
-        let mut rdr = Reader::from_reader(SYSTEM_IMPORT);
-        let mut count = 0;
-        for result in rdr.records() {
-            let record = result.unwrap();
-            let val = System::from_csv(record).unwrap();
-            assert!(exp.contains(&val));
-            count += 1;
-        }
-        assert_eq!(count, exp.len());
-    }
-
-    #[tokio::test]
-    async fn import() {
         let rdr = Reader::from_reader(SYSTEM_IMPORT);
-        let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
-        Campaign::create_tables(&pool).await.unwrap();
-        System::import(rdr, &pool).await.unwrap();
-        for exp in systems() {
-            let act = System::select_by_name(exp.name.as_str(), &pool).await.unwrap();
-            assert_eq!(exp.name, act.name);
-            assert_eq!(exp.ptype, act.ptype);
-            assert_eq!(exp.raw, act.raw);
-            assert_eq!(exp.cap, act.cap);
-            assert_eq!(exp.pop, act.pop);
-            assert_eq!(exp.mor, act.mor);
-            assert_eq!(exp.ind, act.ind);
-            assert_eq!(exp.dev, act.dev);
-            assert_eq!(exp.fails, act.fails);
+        let act = System::read_csv(rdr).unwrap();
+        assert_eq!(exp.len(), act.len());
+        for sys in act {
+            assert!(exp.contains(&sys));
         }
     }
 }

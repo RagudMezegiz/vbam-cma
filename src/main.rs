@@ -17,15 +17,8 @@ mod campaign;
 use campaign::Campaign;
 
 use fltk::{
-    app,
-    button,
-    dialog,
-    enums::Shortcut,
-    frame,
-    input,
-    menu,
-    prelude::*,
-    window, browser::SelectBrowser,
+    app, browser::SelectBrowser, button, dialog, enums::Shortcut, frame, input, menu, prelude::*,
+    window,
 };
 
 // Main window base title
@@ -63,7 +56,7 @@ struct VBAMApp {
     app: app::App,
     main_win: window::Window,
     rcvr: app::Receiver<Message>,
-    cmpgn: Option<campaign::Campaign>
+    cmpgn: Option<campaign::Campaign>,
 }
 
 impl VBAMApp {
@@ -71,7 +64,7 @@ impl VBAMApp {
     fn new() -> Self {
         let app = app::App::default();
         let (s, rcvr) = app::channel();
-    
+
         let mut main_win = window::Window::default()
             .with_size(MAIN_WIDTH, MAIN_HEIGHT)
             .center_screen()
@@ -79,24 +72,54 @@ impl VBAMApp {
 
         let mut menu = menu::MenuBar::default().with_size(MAIN_WIDTH, TEXT_HEIGHT);
 
-        menu.add_emit("&File/&Quit\t", Shortcut::Ctrl | 'q',
-            menu::MenuFlag::Normal, s.clone(), Message::Quit);
-        
-        menu.add_emit("&Campaign/&New...\t", Shortcut::Ctrl | 'n',
-            menu::MenuFlag::Normal, s.clone(), Message::NewCampaign);
-        
-        menu.add_emit("&Campaign/&Open...\t", Shortcut::Ctrl | 'o',
-            menu::MenuFlag::Normal, s.clone(), Message::OpenCampaign);
+        menu.add_emit(
+            "&File/&Quit\t",
+            Shortcut::Ctrl | 'q',
+            menu::MenuFlag::Normal,
+            s.clone(),
+            Message::Quit,
+        );
 
-        menu.add_emit("&Campaign/&Close...\t", Shortcut::Ctrl | 'c',
-            menu::MenuFlag::MenuDivider, s.clone(), Message::CloseCampaign);
+        menu.add_emit(
+            "&Campaign/&New...\t",
+            Shortcut::Ctrl | 'n',
+            menu::MenuFlag::Normal,
+            s.clone(),
+            Message::NewCampaign,
+        );
 
-        menu.add_emit("&Campaign/&Delete...\t", Shortcut::Ctrl | 'd',
-            menu::MenuFlag::Normal, s.clone(), Message::DeleteCampaign);
+        menu.add_emit(
+            "&Campaign/&Open...\t",
+            Shortcut::Ctrl | 'o',
+            menu::MenuFlag::Normal,
+            s.clone(),
+            Message::OpenCampaign,
+        );
 
-        menu.add_emit("&Help/&About...\t", Shortcut::None,
-            menu::MenuFlag::Normal, s.clone(), Message::HelpAbout);
-        
+        menu.add_emit(
+            "&Campaign/&Close...\t",
+            Shortcut::Ctrl | 'c',
+            menu::MenuFlag::MenuDivider,
+            s.clone(),
+            Message::CloseCampaign,
+        );
+
+        menu.add_emit(
+            "&Campaign/&Delete...\t",
+            Shortcut::Ctrl | 'd',
+            menu::MenuFlag::Normal,
+            s.clone(),
+            Message::DeleteCampaign,
+        );
+
+        menu.add_emit(
+            "&Help/&About...\t",
+            Shortcut::None,
+            menu::MenuFlag::Normal,
+            s.clone(),
+            Message::HelpAbout,
+        );
+
         // Buttons to bring up various data displays.
         let button_y = TEXT_HEIGHT + SPACING;
         button::Button::default()
@@ -106,7 +129,7 @@ impl VBAMApp {
             .emit(s.clone(), Message::ShowSystems);
         button::Button::default()
             .with_label("Empires")
-            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_pos(BTN_WIDTH + 2 * SPACING, button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT)
             .emit(s, Message::ShowEmpires);
 
@@ -117,7 +140,7 @@ impl VBAMApp {
             app,
             main_win,
             rcvr,
-            cmpgn: Option::None
+            cmpgn: Option::None,
         }
     }
 
@@ -131,7 +154,7 @@ impl VBAMApp {
                             c.close().await
                         }
                         app::quit()
-                    },
+                    }
                     Message::NewCampaign => self.new_campaign().await,
                     Message::OpenCampaign => self.open_campaign().await,
                     Message::CloseCampaign => self.close_campaign().await,
@@ -153,7 +176,7 @@ impl VBAMApp {
 
         let total_width = 300;
         let total_height = 300;
-        let full_width = total_width - 2*SPACING;
+        let full_width = total_width - 2 * SPACING;
 
         let mut wind = window::Window::default()
             .with_size(total_width, total_height)
@@ -165,7 +188,7 @@ impl VBAMApp {
             .with_pos(SPACING, SPACING)
             .with_size(full_width, TEXT_HEIGHT);
         let name_input = input::Input::default()
-            .with_pos(SPACING, 2*SPACING + TEXT_HEIGHT)
+            .with_pos(SPACING, 2 * SPACING + TEXT_HEIGHT)
             .with_size(full_width, TEXT_HEIGHT);
 
         // TODO Add Campaign options controls
@@ -177,7 +200,7 @@ impl VBAMApp {
             .with_size(BTN_WIDTH, BTN_HEIGHT);
         let mut cancel = button::Button::default()
             .with_label("Cancel")
-            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_pos(BTN_WIDTH + 2 * SPACING, button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT);
 
         wind.end();
@@ -187,7 +210,7 @@ impl VBAMApp {
         let (s, r) = app::channel();
         ok.emit(s, true);
         cancel.emit(s, false);
-        
+
         let mut is_ok = false;
         while wind.shown() && self.app.wait() {
             if let Some(a) = r.recv() {
@@ -200,17 +223,16 @@ impl VBAMApp {
         }
 
         if is_ok && !name_input.value().is_empty() {
-            let c = campaign::Campaign::new(
-                name_input.value()).await;
+            let c = campaign::Campaign::new(name_input.value()).await;
             self.cmpgn = match c {
                 Ok(cm) => {
                     println!("Created {} campaign", cm.name());
                     Some(cm)
-                },
+                }
                 Err(s) => {
                     dialog::alert_default(s.as_str());
                     None
-                },
+                }
             };
             self.set_title();
         }
@@ -227,11 +249,11 @@ impl VBAMApp {
                 Ok(cm) => {
                     println!("Opened {} campaign", name);
                     Some(cm)
-                },
+                }
                 Err(s) => {
                     dialog::alert_default(s.as_str());
                     None
-                },
+                }
             };
         }
         self.set_title();
@@ -255,8 +277,8 @@ impl VBAMApp {
                     cm.close().await;
                     self.cmpgn = None;
                     self.set_title();
-                },
-                None => ()
+                }
+                None => (),
             }
             match campaign::Campaign::delete(&name) {
                 Ok(_) => println!("Deleted {} campaign", name),
@@ -272,7 +294,7 @@ impl VBAMApp {
 
         if let Ok(v) = c.systems().await {
             for s in v {
-                browse.add_with_data(s.as_row(c.pool()).await.as_str(), s);
+                browse.add_with_data(s.as_row().as_str(), s);
             }
         }
     }
@@ -285,11 +307,7 @@ impl VBAMApp {
         };
 
         // Choose the CSV file
-        if let Some(file) = dialog::file_chooser(
-            "Import systems from...",
-            "*.csv",
-            ".",
-            true) {
+        if let Some(file) = dialog::file_chooser("Import systems from...", "*.csv", ".", true) {
             if let Err(e) = c.import_systems(file.as_str()).await {
                 dialog::alert_default(e.as_str())
             }
@@ -298,9 +316,9 @@ impl VBAMApp {
 
     // Pop up the select campaign dialog and return the user's choice.
     fn list_campaigns(&mut self, function: String) -> Option<String> {
-        let names = match campaign::list() {
+        let names = match Campaign::campaigns() {
             Ok(v) => v.join("|"),
-            _ => return None
+            _ => return None,
         };
 
         let total_width = SPACING + 2 * (BTN_WIDTH + SPACING);
@@ -322,7 +340,7 @@ impl VBAMApp {
             .with_size(BTN_WIDTH, BTN_HEIGHT);
         let mut cancel = button::Button::default()
             .with_label("Cancel")
-            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_pos(BTN_WIDTH + 2 * SPACING, button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT);
         wind.end();
         wind.make_modal(true);
@@ -331,7 +349,7 @@ impl VBAMApp {
         let (s, r) = app::channel();
         ok.emit(s, true);
         cancel.emit(s, false);
-        
+
         let mut is_ok = false;
         while wind.shown() && self.app.wait() {
             if let Some(a) = r.recv() {
@@ -368,7 +386,7 @@ impl VBAMApp {
     // Show the complete set of systems, regardless of owner.
     async fn show_systems(&mut self) {
         if self.cmpgn.is_none() {
-            return
+            return;
         }
 
         let mut wind = window::Window::default()
@@ -378,7 +396,7 @@ impl VBAMApp {
         let mut browse = fltk::browser::SelectBrowser::default()
             .with_pos(5, 5)
             .with_size(MAIN_WIDTH - 10, 300);
-        browse.set_column_widths(&[100,100,40,40,40,40,40,40,40,100]);
+        browse.set_column_widths(&[100, 100, 40, 40, 40, 40, 40, 40, 40, 100]);
         browse.set_column_char('\t');
         Self::fill_system_browser(&mut browse, self.cmpgn.as_ref().unwrap()).await;
 
@@ -392,23 +410,23 @@ impl VBAMApp {
             .emit(s, "New");
         button::Button::default()
             .with_label("Edit")
-            .with_pos(BTN_WIDTH + 2*SPACING, button_y)
+            .with_pos(BTN_WIDTH + 2 * SPACING, button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT)
             .emit(s, "Edit");
         button::Button::default()
             .with_label("Delete")
-            .with_pos(SPACING + 2*(BTN_WIDTH + SPACING), button_y)
+            .with_pos(SPACING + 2 * (BTN_WIDTH + SPACING), button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT)
             .emit(s, "Delete");
         button::Button::default()
             .with_label("Import")
-            .with_pos(SPACING + 3*(BTN_WIDTH + SPACING), button_y)
+            .with_pos(SPACING + 3 * (BTN_WIDTH + SPACING), button_y)
             .with_size(BTN_WIDTH, BTN_HEIGHT)
             .emit(s, "Import");
 
         wind.end();
         wind.show();
-        
+
         while wind.shown() && app::wait() {
             if let Some(m) = r.recv() {
                 match m {
@@ -417,9 +435,8 @@ impl VBAMApp {
                     "Delete" => println!("Delete system"),
                     "Import" => {
                         self.import_systems().await;
-                        Self::fill_system_browser(&mut browse,
-                            self.cmpgn.as_ref().unwrap()).await
-                    },
+                        Self::fill_system_browser(&mut browse, self.cmpgn.as_ref().unwrap()).await
+                    }
                     _ => (),
                 }
             }
@@ -438,9 +455,9 @@ fn center() -> (i32, i32) {
 // Show the about box.
 fn show_about() {
     let loc = center();
-    let mut help = dialog::HelpDialog::new(
-        loc.0 - 250, loc.1 - 150, 500, 300);
-    help.set_value("
+    let mut help = dialog::HelpDialog::new(loc.0 - 250, loc.1 - 150, 500, 300);
+    help.set_value(
+        "
         <head>
         <title>About VBAM Campaign Moderator's Assistant</title>
         </head>
@@ -454,7 +471,8 @@ fn show_about() {
         Used with permission.
         </center>
         </body>
-    ");
+    ",
+    );
     help.show();
     while help.shown() {
         app::wait();
