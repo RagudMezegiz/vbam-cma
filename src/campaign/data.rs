@@ -18,6 +18,7 @@
 use sqlx::{Row, SqlitePool};
 use std::{error, fmt, fs, io, num, path};
 
+use super::empire::Empire;
 use super::system::System;
 
 type DataResult<T> = Result<T, DataError>;
@@ -70,6 +71,15 @@ pub struct DataStore {
 }
 
 impl DataStore {
+    /// Add empires to the store.
+    #[allow(unused)]
+    pub async fn add_empires(&self, empires: Vec<Empire>) -> DataResult<()> {
+        for e in empires {
+            self.insert_empire(e).await?
+        }
+        Ok(())
+    }
+
     /// Add systems to the store.
     pub async fn add_systems(&self, systems: Vec<System>) -> DataResult<()> {
         for s in systems {
@@ -126,6 +136,15 @@ impl DataStore {
         Ok(())
     }
 
+    /// Delete an existing system.
+    pub async fn delete_system(&self, sys: &System) -> DataResult<()> {
+        sqlx::query("DELETE FROM systems WHERE id=?")
+            .bind(sys.id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     /// Return the name for the empire ID.
     pub async fn get_empire_name(&self, id: i64) -> DataResult<String> {
         let n = sqlx::query("SELECT name FROM empires WHERE id=?")
@@ -135,10 +154,24 @@ impl DataStore {
         Ok(n.get(0))
     }
 
+    /// Return a system by ID.
+    #[allow(unused)]
+    pub async fn get_system_by_id(&self, id: i64) -> DataResult<System> {
+        let mut sys: System = sqlx::query_as("SELECT * FROM systems WHERE id = ?")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await?;
+        sys.owner_name = match sys.owner {
+            0 => "None".to_string(),
+            n => self.get_empire_name(n).await?,
+        };
+        Ok(sys)
+    }
+
     /// Return a system by name.
     #[allow(unused)]
     pub async fn get_system_by_name(&self, name: &str) -> DataResult<System> {
-        let mut sys: System = sqlx::query_as("SELECT * FROM systems WHERE NAME = ?")
+        let mut sys: System = sqlx::query_as("SELECT * FROM systems WHERE name = ?")
             .bind(name)
             .fetch_one(&self.pool)
             .await?;
@@ -191,6 +224,50 @@ impl DataStore {
         let pool = SqlitePool::connect(url.as_str()).await?;
 
         Ok(Self { pool })
+    }
+
+    /// Update an existing system.
+    pub async fn update_system(&self, sys: &System) -> DataResult<()> {
+        if sys.owner == 0 {
+            // Skip updating owner if it's not set.
+            sqlx::query(
+                "UPDATE systems SET
+                (name, ptype, raw, cap, pop, mor, ind, dev, fails) =
+                (?, ?, ?, ?, ?, ?, ?, ?, ?) WHERE id = ?",
+            )
+            .bind(sys.name.as_str())
+            .bind(sys.ptype.as_str())
+            .bind(sys.raw)
+            .bind(sys.cap)
+            .bind(sys.pop)
+            .bind(sys.mor)
+            .bind(sys.ind)
+            .bind(sys.dev)
+            .bind(sys.fails)
+            .bind(sys.id)
+            .execute(&self.pool)
+            .await?;
+        } else {
+            sqlx::query(
+                "UPDATE systems SET
+                (name, ptype, raw, cap, pop, mor, ind, dev, fails, owner) =
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) WHERE id = ?",
+            )
+            .bind(sys.name.as_str())
+            .bind(sys.ptype.as_str())
+            .bind(sys.raw)
+            .bind(sys.cap)
+            .bind(sys.pop)
+            .bind(sys.mor)
+            .bind(sys.ind)
+            .bind(sys.dev)
+            .bind(sys.fails)
+            .bind(sys.owner)
+            .bind(sys.id)
+            .execute(&self.pool)
+            .await?;
+        }
+        Ok(())
     }
 
     async fn create_controls_table(pool: &SqlitePool) -> DataResult<()> {
@@ -367,6 +444,15 @@ impl DataStore {
         Ok(dbpath)
     }
 
+    #[allow(unused)]
+    async fn insert_empire(&self, emp: Empire) -> DataResult<()> {
+        sqlx::query("INSERT INTO empires (name) VALUES(?)")
+            .bind(emp.name.as_str())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     async fn insert_system(&self, sys: System) -> DataResult<()> {
         sqlx::query(
             "INSERT INTO systems (name, ptype, raw, cap, pop, mor, ind)
@@ -399,6 +485,7 @@ impl DataStore {
 #[cfg(test)]
 mod tests {
     use super::DataStore;
+    use crate::campaign::empire::tests::empires;
     use crate::campaign::system::tests::systems;
 
     async fn init_data() -> DataStore {
@@ -432,5 +519,62 @@ mod tests {
     async fn current_turn() {
         let instance = init_data().await;
         assert_eq!(0, instance.current_turn().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn delete_system() {
+        let instance = init_data().await;
+        instance.add_systems(systems()).await.unwrap();
+        for s in systems() {
+            instance.delete_system(&s).await.unwrap();
+            assert!(instance.get_system_by_id(s.id).await.is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn update_system_no_owner() {
+        let instance = init_data().await;
+        instance.add_systems(systems()).await.unwrap();
+        let original = instance.get_systems().await.unwrap();
+        for mut exp in original {
+            exp.fails = 1;
+            instance.update_system(&exp).await.unwrap();
+            let act = instance.get_system_by_id(exp.id).await.unwrap();
+            assert_eq!(exp.name, act.name);
+            assert_eq!(exp.ptype, act.ptype);
+            assert_eq!(exp.raw, act.raw);
+            assert_eq!(exp.cap, act.cap);
+            assert_eq!(exp.pop, act.pop);
+            assert_eq!(exp.mor, act.mor);
+            assert_eq!(exp.ind, act.ind);
+            assert_eq!(exp.dev, act.dev);
+            assert_eq!(exp.fails, act.fails);
+        }
+    }
+
+    #[tokio::test]
+    async fn update_system_with_owner() {
+        let instance = init_data().await;
+        instance.add_empires(empires()).await.unwrap();
+        let owner = 1i64;
+        let owner_name = instance.get_empire_name(owner).await.unwrap();
+        instance.add_systems(systems()).await.unwrap();
+        let original = instance.get_systems().await.unwrap();
+        for mut exp in original {
+            exp.owner = 1; // just use first empire
+            instance.update_system(&exp).await.unwrap();
+            let act = instance.get_system_by_id(exp.id).await.unwrap();
+            assert_eq!(exp.name, act.name);
+            assert_eq!(exp.ptype, act.ptype);
+            assert_eq!(exp.raw, act.raw);
+            assert_eq!(exp.cap, act.cap);
+            assert_eq!(exp.pop, act.pop);
+            assert_eq!(exp.mor, act.mor);
+            assert_eq!(exp.ind, act.ind);
+            assert_eq!(exp.dev, act.dev);
+            assert_eq!(exp.fails, act.fails);
+            assert_eq!(owner, act.owner);
+            assert_eq!(owner_name, act.owner_name);
+        }
     }
 }

@@ -14,6 +14,7 @@
 // limitations under the License.
 mod campaign;
 
+use campaign::system::System;
 use campaign::Campaign;
 
 use fltk::{
@@ -287,6 +288,12 @@ impl VBAMApp {
         }
     }
 
+    // Edit the system. Returns None if canceled, Some(system) if edited.
+    async fn edit_system(&mut self, sys: System) -> Option<System> {
+        println!("System: {}", sys.as_row());
+        None
+    }
+
     // Fill the system browser with the campaign's data.
     async fn fill_system_browser(browse: &mut SelectBrowser, c: &Campaign) {
         browse.clear();
@@ -431,8 +438,40 @@ impl VBAMApp {
             if let Some(m) = r.recv() {
                 match m {
                     "New" => println!("New system"),
-                    "Edit" => println!("Edit system"),
-                    "Delete" => println!("Delete system"),
+                    "Edit" => {
+                        let sel = browse.value();
+                        if sel > 1 {
+                            // Ignore header, so only edit if 2+
+                            unsafe {
+                                if let Some(sys) = browse.data(sel) {
+                                    if let Some(sys) = self.edit_system(sys).await {
+                                        match self.cmpgn.as_ref().unwrap().update_system(&sys).await
+                                        {
+                                            Ok(_) => {
+                                                browse.set_text(sel, sys.as_row().as_str());
+                                                browse.set_data(sel, sys);
+                                            }
+                                            Err(e) => dialog::alert_default(e.as_str()),
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "Delete" => {
+                        let sel = browse.value();
+                        if sel > 1 {
+                            // Ignore header, so only delete if 2+
+                            unsafe {
+                                if let Some(sys) = browse.data(sel) {
+                                    match self.cmpgn.as_ref().unwrap().delete_system(&sys).await {
+                                        Ok(_) => browse.remove(sel),
+                                        Err(e) => dialog::alert_default(e.as_str()),
+                                    }
+                                }
+                            }
+                        }
+                    }
                     "Import" => {
                         self.import_systems().await;
                         Self::fill_system_browser(&mut browse, self.cmpgn.as_ref().unwrap()).await

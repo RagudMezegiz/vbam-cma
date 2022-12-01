@@ -18,21 +18,40 @@
 #[allow(unused)]
 #[derive(sqlx::FromRow)]
 pub struct Empire {
-    id: i64,
-    name: String,
-    treasury: i32,
-    tech: i32,
+    pub id: i64,
+    pub name: String,
+    pub treasury: i32,
+    pub tech: i32,
 }
 
 impl Empire {
-    /// Return the empire short name.
+    /// Create a new empire.
     #[allow(unused)]
-    pub fn name(&self) -> String {
-        self.name.clone()
+    pub fn new(name: &str) -> Empire {
+        Self {
+            id: 0,
+            name: name.to_string(),
+            treasury: 0,
+            tech: 0,
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
+    use crate::campaign::empire::Empire;
+
+    pub fn empires() -> Vec<Empire> {
+        let mut emp = Vec::new();
+        emp.push(Empire::new("Senorian"));
+        emp.push(Empire::new("Human"));
+        emp.push(Empire::new("Kili"));
+        emp.push(Empire::new("Loran"));
+        emp.push(Empire::new("Jain"));
+        emp.push(Empire::new("Brindaki"));
+        emp.push(Empire::new("Graal"));
+        emp.push(Empire::new("Tirelon"));
+        emp
+    }
     // TODO Add tests
 }

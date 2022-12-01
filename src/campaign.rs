@@ -17,7 +17,7 @@
 
 mod data;
 mod empire;
-mod system;
+pub mod system;
 mod unit;
 
 use data::DataStore;
@@ -59,6 +59,14 @@ impl Campaign {
     pub fn campaigns() -> Result<Vec<String>, String> {
         match DataStore::available_campaigns() {
             Ok(v) => Ok(v),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    /// Delete the specified system.
+    pub async fn delete_system(&self, sys: &System) -> Result<(), String> {
+        match self.data.delete_system(sys).await {
+            Ok(_) => Ok(()),
             Err(e) => Err(e.to_string()),
         }
     }
@@ -111,6 +119,14 @@ impl Campaign {
     /// Campaign title including turn number.
     pub fn title(&self) -> String {
         format!("{} Turn {}", self.name, self.turn)
+    }
+
+    /// Update the given system, which must have a valid ID.
+    pub async fn update_system(&self, sys: &System) -> Result<(), String> {
+        match self.data.update_system(sys).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
     }
 }
 
